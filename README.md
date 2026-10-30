@@ -1,6 +1,6 @@
 # Truma iNet X (Bluetooth) – Home-Assistant-Integration `ha_truma_inet_x`
 
-Version 1.0.1
+Version 1.0.2
 
 Steuert eine Truma-Heizung (z. B. **Combi 6 E**) über das **Truma iNet X Panel** per Bluetooth LE –
 direkt aus Home Assistant, ohne Cloud und ohne Smartphone. Die Integration spricht dasselbe Protokoll
@@ -99,9 +99,15 @@ hat, wird nicht angelegt.
 
 ```yaml
 logger:
+  default: warning
   logs:
     custom_components.ha_truma_inet_x: debug
 ```
+
+Die Integration schreibt jeden Schritt der Einrichtung (Kopplungsstatus, BlueZ-Kopplung, Anmeldung) als
+INFO-Zeile ins Log. **Wichtig:** *Einstellungen → System → Protokolle* zeigt zunächst nur Warnungen und
+Fehler – INFO/DEBUG-Zeilen erscheinen erst unter *⋮ → Vollständige Protokolle anzeigen* bzw. in
+`/config/home-assistant.log`. Beim Start erscheint `Truma iNet X integration version … loaded`.
 
 * **„Kopplung nicht aktiv“:** Am Panel im Hauptmenü auf „App“ tippen und sofort absenden.
 * **„Anderes Smartphone verbunden“:** Truma-App auf allen Handys schließen (auch im Hintergrund).

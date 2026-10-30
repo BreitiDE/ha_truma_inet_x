@@ -64,6 +64,7 @@ _LOGGER = logging.getLogger(__name__)
 CONF_SKIP_PAIRING = "skip_pairing"
 TEST_TIMEOUT = 75.0
 PAIRING_WAIT = 30.0
+INTEGRATION_VERSION = "1.0.2"
 
 
 def is_truma_panel(info: BluetoothServiceInfoBleak) -> bool:
@@ -170,9 +171,23 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
                     passkey = int(passkey_raw)
 
             skip = bool(user_input.get(CONF_SKIP_PAIRING))
+            _LOGGER.info(
+                "Setup %s: submitted (pairing state %s, passkey %s, legacy %s, skip %s)",
+                info.address,
+                pairing_state(info),
+                "yes" if passkey is not None else "no",
+                user_input.get(CONF_LEGACY_PAIRING, True),
+                skip,
+            )
             if not errors and not skip:
                 flag_error = await self._async_wait_pairing_enabled()
                 if flag_error:
+                    _LOGGER.warning(
+                        "Setup %s: panel does not allow pairing (%s, state %s)",
+                        info.address,
+                        flag_error,
+                        pairing_state(self._latest_info()),
+                    )
                     errors["base"] = flag_error
                 else:
                     info = self._latest_info()
@@ -193,6 +208,9 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
                     uuid=str(uuid.uuid4()).lower(),
                     username=user_input.get(CONF_USERNAME) or DEFAULT_USERNAME,
                 )
+                _LOGGER.info(
+                    "Setup %s: connecting and registering at the panel", info.address
+                )
                 try:
                     await self._async_test_session(info, identity)
                 except RegistrationError as err:
@@ -205,6 +223,7 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
                     errors["base"] = "cannot_connect"
                     detail = str(err)
                 else:
+                    _LOGGER.info("Setup %s: registration successful", info.address)
                     return self.async_create_entry(
                         title=info.name or panel_type(info),
                         data={
@@ -215,6 +234,15 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
                         },
                     )
 
+        if user_input is None:
+            _LOGGER.info(
+                "Setup %s (%s): pairing form shown (integration %s), pairing state %s, source %s",
+                info.address,
+                info.name,
+                INTEGRATION_VERSION,
+                pairing_state(info),
+                info.source,
+            )
         defaults = user_input or {}
         return self.async_show_form(
             step_id="pair",
@@ -259,6 +287,12 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
         loop = asyncio.get_running_loop()
         deadline = loop.time() + PAIRING_WAIT
         flag: int | None = None
+        _LOGGER.info(
+            "Setup %s: waiting up to %.0f s for 'pairing active' (current state %s)",
+            self._discovery.address if self._discovery else "?",
+            PAIRING_WAIT,
+            pairing_state(self._discovery),
+        )
         while True:
             flag = pairing_flag(self._latest_info())
             if flag is None or flag == PAIRING_FLAG_ENABLED:
@@ -280,7 +314,7 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
             result = await async_pair_bluez(
                 info.address, passkey, adapter_hint=info.source, legacy=legacy
             )
-            _LOGGER.debug("BlueZ pairing result for %s: %s", info.address, result)
+            _LOGGER.info("Setup %s: BlueZ pairing result %s", info.address, result)
             return
         except PairingError as err:
             if err.reason not in ("device_not_local", "dbus_unavailable"):

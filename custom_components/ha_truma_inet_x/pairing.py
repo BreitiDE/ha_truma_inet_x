@@ -84,6 +84,7 @@ def _build_agent(passkey: int | None, device_path: str):
         def RequestPasskey(self, device: "o") -> "u":  # noqa: N802,F821
             _check(device)
             self.passkey_requested = True
+            _LOGGER.info("Agent: panel requests a passkey")
             if passkey is None:
                 raise DBusError("org.bluez.Error.Rejected", "passkey required")
             return passkey
@@ -97,12 +98,12 @@ def _build_agent(passkey: int | None, device_path: str):
             _check(device)
             if passkey is not None and passkey != passkey_:
                 raise DBusError("org.bluez.Error.Rejected", "passkey mismatch")
-            _LOGGER.debug("RequestConfirmation %06d -> accepted", passkey_)
+            _LOGGER.info("Agent: RequestConfirmation %06d -> accepted", passkey_)
 
         @method()
         def RequestAuthorization(self, device: "o"):  # noqa: N802,F821
             _check(device)
-            _LOGGER.debug("RequestAuthorization -> accepted")
+            _LOGGER.info("Agent: RequestAuthorization -> accepted")
 
         @method()
         def AuthorizeService(self, device: "o", uuid: "s"):  # noqa: N802,F821
@@ -110,7 +111,7 @@ def _build_agent(passkey: int | None, device_path: str):
 
         @method()
         def Cancel(self):  # noqa: N802
-            _LOGGER.debug("Pairing cancelled by BlueZ")
+            _LOGGER.info("Agent: Pairing cancelled by BlueZ")
 
     return _Agent()
 
@@ -241,8 +242,16 @@ async def async_pair_bluez(
         if dev_path is None:
             raise PairingError("device_not_local", address)
         adapter_path = dev_path.rsplit("/", 1)[0]
+        _LOGGER.info(
+            "Pairing %s: BlueZ device %s (adapters: %s, hint %s)",
+            address,
+            dev_path,
+            ", ".join(f"{p}={a}" for p, a in adapters.items()),
+            adapter_hint,
+        )
 
         if await bus.get_bool(dev_path, "Paired"):
+            _LOGGER.info("Pairing %s: already paired in BlueZ", address)
             await bus.set_bool(dev_path, "Trusted", True)
             return PairingResult(paired=True, already_paired=True, method="bluez")
 
@@ -254,7 +263,11 @@ async def async_pair_bluez(
                 await asyncio.get_running_loop().run_in_executor(
                     None, legacy_settings.apply
                 )
-                _LOGGER.debug("Legacy pairing settings applied on hci%d", index)
+                _LOGGER.info(
+                    "Pairing %s: hci%d switched to legacy pairing (Secure Connections off)",
+                    address,
+                    index,
+                )
             except (MgmtError, ValueError, IndexError) as err:
                 _LOGGER.warning(
                     "Could not switch the Bluetooth adapter to legacy pairing (%s); "
@@ -277,7 +290,9 @@ async def async_pair_bluez(
 
 async def _discover(bus: _Bus, address: str, adapter_path: str) -> str | None:
     """Let BlueZ discover the panel so a Device1 object exists."""
-    _LOGGER.debug("Starting BlueZ discovery on %s for %s", adapter_path, address)
+    _LOGGER.info(
+        "Pairing %s: not known to BlueZ, discovering on %s", address, adapter_path
+    )
     with contextlib.suppress(Exception):
         await bus.call(
             adapter_path,
@@ -323,7 +338,9 @@ async def _pair(
     if bus.is_error(reply) and "AlreadyExists" not in str(reply.error_name):
         bus.bus.unexport(AGENT_PATH)
         raise PairingError("agent_failed", str(reply.body))
-    _LOGGER.debug("BlueZ agent registered (%s), pairing %s", capability, dev_path)
+    _LOGGER.info(
+        "Pairing %s: agent %s registered, calling Device1.Pair()", dev_path, capability
+    )
 
     paired = False
     try:
@@ -354,10 +371,16 @@ async def _pair(
 
         if not paired:
             if error_reply is None:
+                _LOGGER.warning(
+                    "Pairing %s: no result after %.0f s (agent asked for passkey: %s)",
+                    dev_path,
+                    timeout,
+                    getattr(agent, "passkey_requested", False),
+                )
                 raise PairingError("pairing_timeout")
             name = error_reply.error_name or ""
             detail = f"{name}: {error_reply.body}"
-            _LOGGER.debug("BlueZ Pair() failed: %s", detail)
+            _LOGGER.warning("Pairing %s: BlueZ Pair() failed: %s", dev_path, detail)
             if name.endswith("AlreadyExists"):
                 return PairingResult(paired=True, already_paired=True, method="bluez")
             if getattr(agent, "passkey_requested", False) and passkey is None:
@@ -371,6 +394,7 @@ async def _pair(
                 raise PairingError("cannot_connect", detail)
             raise PairingError("pairing_failed", detail)
 
+        _LOGGER.info("Pairing %s: paired, marking as trusted", dev_path)
         await bus.set_bool(dev_path, "Trusted", True)
         # give bluetoothd time to store the bond keys
         await asyncio.sleep(BOND_SETTLE_TIME)

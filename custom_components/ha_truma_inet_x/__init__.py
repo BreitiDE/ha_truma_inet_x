@@ -32,6 +32,8 @@ from .coordinator import TrumaConfigEntry, TrumaCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
+VERSION = "1.0.2"
+
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
     Platform.CLIMATE,
@@ -78,6 +80,7 @@ RELEASE_SCHEMA = vol.Schema(
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     """Register the integration services."""
+    _LOGGER.info("Truma iNet X integration version %s loaded", VERSION)
 
     def _coordinator(call: ServiceCall) -> TrumaCoordinator:
         entry_id = call.data.get(ATTR_ENTRY_ID)

@@ -317,7 +317,7 @@ class TrumaInetXClient:
         with contextlib.suppress(Exception):
             mtu = int(client.mtu_size)
         self._chunk_size = max(20, min(mtu - 3, 512))
-        _LOGGER.debug("%s: MTU %s -> chunk size %s", self.name, mtu, self._chunk_size)
+        _LOGGER.info("%s: connected, MTU %s", self.name, mtu)
 
         self._transport = TrumaTransport(
             write_cmd=lambda data: client.write_gatt_char(cmd, data, response=True),
@@ -453,7 +453,12 @@ class TrumaInetXClient:
                 )
             except (TimeoutError, TrumaError) as err:
                 last_err = err
-                _LOGGER.debug("Registration attempt %d failed: %s", attempt + 1, err)
+                _LOGGER.warning(
+                    "%s: registration attempt %d failed: %s",
+                    self.name,
+                    attempt + 1,
+                    err,
+                )
                 if not self._connected:
                     break
                 continue
@@ -466,7 +471,9 @@ class TrumaInetXClient:
             if not isinstance(address, int):
                 raise RegistrationError(f"invalid registration response {response}")
             self.state.address = address & 0xFFFF
-            _LOGGER.debug("%s: registered as 0x%04X", self.name, self.state.address)
+            _LOGGER.info(
+                "%s: registered at the panel as 0x%04X", self.name, self.state.address
+            )
             return self.state.address
         raise RegistrationError(f"no registration response ({last_err})")
 
