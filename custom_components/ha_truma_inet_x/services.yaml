@@ -37,3 +37,17 @@ dump_parameters:
       selector:
         config_entry:
           integration: ha_truma_inet_x
+
+release_bluetooth:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: ha_truma_inet_x
+    minutes:
+      example: 10
+      selector:
+        number:
+          min: 0
+          max: 1440
+          unit_of_measurement: min

@@ -10,20 +10,22 @@
       },
       "pair": {
         "title": "{name} koppeln",
-        "description": "Panel {name} ({address}), gemeldeter Kopplungsstatus: **{pairing_state}**.\n\n1. Die Truma-iNet-X-App auf allen Handys schließen (das Panel akzeptiert nur wenige gleichzeitige Verbindungen).\n2. Das iNet X Panel in den Kopplungsmodus versetzen (Panel-Menü: Einstellungen → Bluetooth / Verbindungen → neues Gerät koppeln).\n3. Die am Panel angezeigte 6-stellige PIN eingeben und innerhalb des Kopplungszeitfensters absenden.\n\nIst Home Assistant bereits mit dem Panel gekoppelt (z. B. per `bluetoothctl`), *Bereits gekoppelt* anhaken.\n\nLetztes Fehlerdetail: {detail}",
+        "description": "Panel {name} ({address}) – aktueller Kopplungsstatus: **{pairing_state}**.\n\n1. Die Truma-iNet-X-App auf allen Handys vollständig schließen (auch im Hintergrund). Das Panel akzeptiert nur eine App-Verbindung.\n2. Am Panel im Hauptmenü auf **App** tippen und den Anweisungen auf dem Display folgen (Bluetooth-Kopplung wird aktiv, es wird kein Code angezeigt).\n3. Direkt danach *Absenden* klicken. Home Assistant wartet bis zu 30 s auf *Kopplung aktiv*, koppelt dann ohne Code (Just Works) und meldet sich am Panel an.\n\nDie PIN nur ausfüllen, falls dein Panel tatsächlich einen Code anzeigt. Ist Home Assistant bereits gekoppelt (z. B. per `bluetoothctl`), *Bereits gekoppelt* anhaken.\n\nLetztes Fehlerdetail: {detail}",
         "data": {
-          "passkey": "Am Panel angezeigte PIN",
           "username": "Name, der am Panel angezeigt wird",
+          "legacy_pairing": "Legacy-Pairing (Secure Connections während der Kopplung aus, empfohlen)",
+          "passkey": "PIN (nur falls das Panel eine anzeigt)",
           "skip_pairing": "Bereits gekoppelt (Bluetooth-Kopplung überspringen)"
         },
         "data_description": {
-          "passkey": "Leer lassen, wenn das Panel keine PIN anzeigt."
+          "legacy_pairing": "Schaltet den Bluetooth-Adapter kurz auf LE-Legacy-Pairing um (wie `btmgmt sc off`), danach wird wieder zurückgestellt.",
+          "passkey": "Leer lassen – das iNet X Panel koppelt normalerweise ohne Code."
         }
       }
     },
     "error": {
       "invalid_passkey": "Die PIN besteht aus bis zu 6 Ziffern.",
-      "passkey_required": "Das Panel verlangt eine PIN. Bitte die am Panel angezeigte PIN eingeben.",
+      "passkey_required": "Das Panel verlangt eine PIN. Bitte den am Panel angezeigten Code eingeben.",
       "wrong_passkey": "Kopplung abgelehnt – falsche PIN oder Kopplungsmodus abgelaufen.",
       "pairing_timeout": "Zeitüberschreitung beim Koppeln. Ist das Panel im Kopplungsmodus?",
       "pairing_failed": "Bluetooth-Kopplung fehlgeschlagen.",
@@ -31,7 +33,10 @@
       "dbus_unavailable": "Der Bluetooth-Stack (BlueZ/D-Bus) ist nicht erreichbar.",
       "device_not_local": "Das Panel ist dem lokalen Bluetooth-Adapter nicht bekannt.",
       "cannot_connect": "Verbindung zum Panel fehlgeschlagen.",
-      "no_registration": "Das Panel hat die Anmeldung nicht akzeptiert (gekoppelt?)."
+      "no_registration": "Das Panel hat die Anmeldung nicht akzeptiert (gekoppelt?).",
+      "pairing_not_active": "Das Panel meldet nicht *Kopplung aktiv*. Im Panel-Hauptmenü auf *App* tippen und erneut absenden.",
+      "other_phone_connected": "Ein anderes Smartphone ist mit dem Panel verbunden. Die iNet-X-App auf allen Handys schließen (auch im Hintergrund).",
+      "pairing_rejected": "Das Panel hat die Kopplung abgelehnt. Kopplung am Panel erneut aktivieren und nochmal versuchen."
     },
     "abort": {
       "already_configured": "Gerät ist bereits eingerichtet",
@@ -44,7 +49,8 @@
         "title": "Truma iNet X Optionen",
         "data": {
           "username": "Name, der am Panel angezeigt wird",
-          "cmd_notify_characteristic": "Characteristic für Transport-Benachrichtigungen"
+          "cmd_notify_characteristic": "Characteristic für Transport-Benachrichtigungen",
+          "release_minutes": "Dauer der Bluetooth-Freigabe für die Handy-App"
         }
       }
     }
@@ -168,6 +174,9 @@
       },
       "ambient_light": {
         "name": "Ambientebeleuchtung"
+      },
+      "app_release": {
+        "name": "Bluetooth für Handy-App freigeben"
       }
     },
     "select": {
@@ -257,6 +266,20 @@
         "config_entry_id": {
           "name": "Panel",
           "description": "Konfigurationseintrag (optional)."
+        }
+      }
+    },
+    "release_bluetooth": {
+      "name": "Bluetooth freigeben",
+      "description": "Trennt die Verbindung zum Panel für eine Weile, damit sich die Truma-App auf dem Handy verbinden kann.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Panel",
+          "description": "Konfigurationseintrag (optional)."
+        },
+        "minutes": {
+          "name": "Minuten",
+          "description": "Dauer (Standard aus den Optionen, 0 = Freigabe beenden)."
         }
       }
     }

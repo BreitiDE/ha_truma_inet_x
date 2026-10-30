@@ -45,6 +45,8 @@ PLATFORMS: list[Platform] = [
 SERVICE_WRITE_PARAMETER = "write_parameter"
 SERVICE_REDISCOVER = "rediscover"
 SERVICE_DUMP = "dump_parameters"
+SERVICE_RELEASE = "release_bluetooth"
+ATTR_MINUTES = "minutes"
 
 ATTR_ENTRY_ID = "config_entry_id"
 ATTR_TOPIC = "topic"
@@ -64,6 +66,14 @@ WRITE_SCHEMA = vol.Schema(
     }
 )
 ENTRY_SCHEMA = vol.Schema({vol.Optional(ATTR_ENTRY_ID): cv.string})
+RELEASE_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_ENTRY_ID): cv.string,
+        vol.Optional(ATTR_MINUTES): vol.All(
+            vol.Coerce(float), vol.Range(min=0, max=1440)
+        ),
+    }
+)
 
 
 async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
@@ -111,6 +121,14 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
         except TrumaError as err:
             raise HomeAssistantError(f"Truma: {err}") from err
 
+    async def _release(call: ServiceCall) -> None:
+        coordinator = _coordinator(call)
+        minutes = call.data.get(ATTR_MINUTES)
+        if minutes == 0:
+            coordinator.async_resume()
+        else:
+            await coordinator.async_release(minutes)
+
     async def _dump(call: ServiceCall) -> ServiceResponse:
         return _coordinator(call).state.as_dict()
 
@@ -119,6 +137,9 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     )
     hass.services.async_register(
         DOMAIN, SERVICE_REDISCOVER, _rediscover, schema=ENTRY_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_RELEASE, _release, schema=RELEASE_SCHEMA
     )
     hass.services.async_register(
         DOMAIN,

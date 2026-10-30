@@ -107,6 +107,7 @@ class TrumaInetXClient:
         cmd_notify: str = CMD_NOTIFY_AUTO,
         on_connection_change: Callable[[bool], None] | None = None,
         on_ready: Callable[[], None] | None = None,
+        on_pause_change: Callable[[bool], None] | None = None,
     ) -> None:
         self.address = address
         self.identity = identity
@@ -116,6 +117,9 @@ class TrumaInetXClient:
         self._ble_device_callback = ble_device_callback
         self._on_connection_change = on_connection_change
         self._on_ready = on_ready
+        self._on_pause_change = on_pause_change
+        self._paused_until: float | None = None
+        self._resume_event = asyncio.Event()
 
         self._client: BleakClientWithServiceCache | None = None
         self._transport: TrumaTransport | None = None
@@ -181,23 +185,80 @@ class TrumaInetXClient:
     async def _run(self) -> None:
         delay = RECONNECT_MIN_DELAY
         while self._running:
+            if await self._wait_while_paused():
+                delay = RECONNECT_MIN_DELAY
+                continue
             try:
                 await self.connect_and_setup()
                 delay = RECONNECT_MIN_DELAY
                 await self._disconnected.wait()
-                _LOGGER.info("%s: connection lost", self.name)
+                if not self.paused:
+                    _LOGGER.info("%s: connection lost", self.name)
             except asyncio.CancelledError:
                 raise
             except Exception as err:  # noqa: BLE001
-                self.last_error = str(err)
-                _LOGGER.warning("%s: connection failed: %s", self.name, err)
-                _LOGGER.debug("connection failure details", exc_info=True)
+                if not self.paused:
+                    self.last_error = str(err)
+                    _LOGGER.warning("%s: connection failed: %s", self.name, err)
+                    _LOGGER.debug("connection failure details", exc_info=True)
             await self._disconnect()
             if not self._running:
                 break
+            if self.paused:
+                continue
             _LOGGER.debug("%s: reconnecting in %.0fs", self.name, delay)
-            await asyncio.sleep(delay)
+            self._resume_event.clear()
+            with contextlib.suppress(asyncio.TimeoutError):
+                await asyncio.wait_for(self._resume_event.wait(), delay)
             delay = min(delay * 2, RECONNECT_MAX_DELAY)
+
+    # ------------------------------------------------------------------
+    # releasing Bluetooth for the smartphone app
+    # ------------------------------------------------------------------
+    @property
+    def paused(self) -> bool:
+        return self._paused_until is not None and time.monotonic() < self._paused_until
+
+    @property
+    def pause_remaining(self) -> float:
+        if not self.paused:
+            return 0.0
+        return max(0.0, (self._paused_until or 0) - time.monotonic())
+
+    async def _wait_while_paused(self) -> bool:
+        """Block while paused; True if a pause was waited for."""
+        if self._paused_until is None:
+            return False
+        waited = False
+        while self._running and self.paused:
+            waited = True
+            self._resume_event.clear()
+            with contextlib.suppress(asyncio.TimeoutError):
+                await asyncio.wait_for(self._resume_event.wait(), self.pause_remaining)
+        self._paused_until = None
+        _LOGGER.info("%s: Bluetooth release ended, reconnecting", self.name)
+        if self._on_pause_change:
+            self._on_pause_change(False)
+        return waited
+
+    async def release(self, seconds: float) -> None:
+        """Disconnect and stay away so the smartphone app can connect."""
+        self._paused_until = time.monotonic() + max(1.0, seconds)
+        _LOGGER.info("%s: releasing Bluetooth for %.0f s", self.name, seconds)
+        if self._on_pause_change:
+            self._on_pause_change(True)
+        self._resume_event.set()
+        client = self._client
+        if client is not None:
+            with contextlib.suppress(Exception):
+                await client.disconnect()
+        self._disconnected.set()
+
+    def resume(self) -> None:
+        """End a Bluetooth release early."""
+        if self._paused_until is not None:
+            self._paused_until = time.monotonic()
+        self._resume_event.set()
 
     # ------------------------------------------------------------------
     # connection
@@ -494,7 +555,9 @@ class TrumaInetXClient:
             self._pd_futures[device] = fut
             pending[device] = fut
             try:
-                await self._send(build_parameter_discovery_request(self.state.address, device))
+                await self._send(
+                    build_parameter_discovery_request(self.state.address, device)
+                )
             except TrumaError as err:
                 _LOGGER.debug("Parameter discovery 0x%04X failed: %s", device, err)
                 self._pd_futures.pop(device, None)
@@ -512,7 +575,9 @@ class TrumaInetXClient:
                     self.state.discovered_devices.add(device)
                 elif not fut.done():
                     fut.cancel()
-                    _LOGGER.debug("%s: no parameter discovery from 0x%04X", self.name, device)
+                    _LOGGER.debug(
+                        "%s: no parameter discovery from 0x%04X", self.name, device
+                    )
         if not self._connected:
             raise TrumaError("disconnected during parameter discovery")
 

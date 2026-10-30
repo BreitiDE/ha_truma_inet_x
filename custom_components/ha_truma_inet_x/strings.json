@@ -10,20 +10,22 @@
       },
       "pair": {
         "title": "Pair {name}",
-        "description": "Panel {name} ({address}), advertised pairing state: **{pairing_state}**.\n\n1. Close the Truma iNet X app on all phones (the panel only accepts a limited number of connections).\n2. Put the iNet X panel into pairing mode (panel menu: Settings → Bluetooth / Connections → pair new device).\n3. Enter the 6-digit PIN shown on the panel and submit within the pairing time window.\n\nIf Home Assistant is already bonded with the panel (e.g. via `bluetoothctl`), tick *Already paired*.\n\nLast error detail: {detail}",
+        "description": "Panel {name} ({address}) – current pairing state: **{pairing_state}**.\n\n1. Close the Truma iNet X app on all phones completely (also in the background). The panel accepts only one app connection.\n2. On the panel tap **App** in the main menu and follow the instructions on the display (Bluetooth pairing becomes active, no code is shown).\n3. Click *Submit* right away. Home Assistant waits up to 30 s for *pairing active*, then pairs without a code (Just Works) and registers at the panel.\n\nOnly fill in the PIN if your panel really shows a code. If Home Assistant is already paired (e.g. via `bluetoothctl`), tick *Already paired*.\n\nLast error detail: {detail}",
         "data": {
-          "passkey": "PIN shown on the panel",
           "username": "Name shown on the panel",
+          "legacy_pairing": "Legacy pairing (Secure Connections off during pairing, recommended)",
+          "passkey": "PIN (only if the panel shows one)",
           "skip_pairing": "Already paired (skip Bluetooth pairing)"
         },
         "data_description": {
-          "passkey": "Leave empty if the panel does not show a PIN."
+          "legacy_pairing": "Temporarily switches the Bluetooth adapter to LE legacy pairing like `btmgmt sc off`, restored afterwards.",
+          "passkey": "Leave empty – the iNet X panel normally pairs without a code."
         }
       }
     },
     "error": {
       "invalid_passkey": "The PIN must consist of up to 6 digits.",
-      "passkey_required": "The panel requires a PIN. Enter the PIN shown on the panel.",
+      "passkey_required": "The panel asked for a PIN. Enter the code shown on the panel.",
       "wrong_passkey": "Pairing was rejected – wrong PIN or pairing mode expired.",
       "pairing_timeout": "Pairing timed out. Is the panel in pairing mode?",
       "pairing_failed": "Bluetooth pairing failed.",
@@ -31,7 +33,10 @@
       "dbus_unavailable": "The Bluetooth stack (BlueZ/D-Bus) is not reachable.",
       "device_not_local": "The panel is not known to the local Bluetooth adapter.",
       "cannot_connect": "Could not connect to the panel.",
-      "no_registration": "The panel did not accept the registration (is it paired?)."
+      "no_registration": "The panel did not accept the registration (is it paired?).",
+      "pairing_not_active": "The panel does not report *pairing active*. Tap *App* in the panel main menu and submit again.",
+      "other_phone_connected": "Another smartphone is connected to the panel. Close the iNet X app on all phones (also in the background).",
+      "pairing_rejected": "The panel rejected the pairing. Re-activate pairing on the panel and try again."
     },
     "abort": {
       "already_configured": "Device is already configured",
@@ -44,7 +49,8 @@
         "title": "Truma iNet X options",
         "data": {
           "username": "Name shown on the panel",
-          "cmd_notify_characteristic": "Characteristic for transport notifications"
+          "cmd_notify_characteristic": "Characteristic for transport notifications",
+          "release_minutes": "Duration of the Bluetooth release for the phone app"
         }
       }
     }
@@ -168,6 +174,9 @@
       },
       "ambient_light": {
         "name": "Ambient light"
+      },
+      "app_release": {
+        "name": "Release Bluetooth for phone app"
       }
     },
     "select": {
@@ -257,6 +266,20 @@
         "config_entry_id": {
           "name": "Panel",
           "description": "Config entry (optional)."
+        }
+      }
+    },
+    "release_bluetooth": {
+      "name": "Release Bluetooth",
+      "description": "Disconnect from the panel for a while so the Truma app on a phone can connect.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Panel",
+          "description": "Config entry (optional)."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "Duration (default from the options, 0 = end release)."
         }
       }
     }

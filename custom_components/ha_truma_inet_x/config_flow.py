@@ -24,6 +24,9 @@ from homeassistant.config_entries import (
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -37,12 +40,18 @@ from .const import (
     CMD_NOTIFY_4004,
     CMD_NOTIFY_AUTO,
     CONF_CMD_NOTIFY,
+    CONF_LEGACY_PAIRING,
     CONF_MUID,
     CONF_PASSKEY,
+    CONF_RELEASE_MINUTES,
     CONF_USERNAME,
     CONF_UUID,
+    DEFAULT_RELEASE_MINUTES,
     DEFAULT_USERNAME,
     DOMAIN,
+    PAIRING_FLAG_DISABLED,
+    PAIRING_FLAG_ENABLED,
+    PAIRING_FLAG_MULTIPLE,
     PAIRING_FLAGS,
     PANEL_TYPES,
     TRUMA_MANUFACTURER_ID,
@@ -54,6 +63,7 @@ _LOGGER = logging.getLogger(__name__)
 
 CONF_SKIP_PAIRING = "skip_pairing"
 TEST_TIMEOUT = 75.0
+PAIRING_WAIT = 30.0
 
 
 def is_truma_panel(info: BluetoothServiceInfoBleak) -> bool:
@@ -63,13 +73,20 @@ def is_truma_panel(info: BluetoothServiceInfoBleak) -> bool:
     return bool(uuids & set(ADVERTISED_SERVICE_UUIDS))
 
 
-def pairing_state(info: BluetoothServiceInfoBleak | None) -> str:
+def pairing_flag(info: BluetoothServiceInfoBleak | None) -> int | None:
     if info is None:
-        return "unknown"
+        return None
     data = info.manufacturer_data.get(TRUMA_MANUFACTURER_ID)
     if not data:
+        return None
+    return data[-1]
+
+
+def pairing_state(info: BluetoothServiceInfoBleak | None) -> str:
+    flag = pairing_flag(info)
+    if flag is None:
         return "unknown"
-    return PAIRING_FLAGS.get(data[-1], "unknown")
+    return PAIRING_FLAGS.get(flag, "unknown")
 
 
 def panel_type(info: BluetoothServiceInfoBleak) -> str:
@@ -139,7 +156,7 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         assert self._discovery is not None
-        info = self._discovery
+        info = self._latest_info()
         errors: dict[str, str] = {}
         detail = ""
 
@@ -152,13 +169,23 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
                 else:
                     passkey = int(passkey_raw)
 
-            if not errors and not user_input.get(CONF_SKIP_PAIRING):
-                try:
-                    await self._async_pair(info, passkey)
-                except PairingError as err:
-                    _LOGGER.warning("Pairing with %s failed: %s", info.address, err)
-                    errors["base"] = err.reason
-                    detail = err.detail
+            skip = bool(user_input.get(CONF_SKIP_PAIRING))
+            if not errors and not skip:
+                flag_error = await self._async_wait_pairing_enabled()
+                if flag_error:
+                    errors["base"] = flag_error
+                else:
+                    info = self._latest_info()
+                    try:
+                        await self._async_pair(
+                            info,
+                            passkey,
+                            bool(user_input.get(CONF_LEGACY_PAIRING, True)),
+                        )
+                    except PairingError as err:
+                        _LOGGER.warning("Pairing with %s failed: %s", info.address, err)
+                        errors["base"] = err.reason
+                        detail = err.detail
 
             if not errors:
                 identity = Identity(
@@ -172,7 +199,7 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
                     _LOGGER.warning("Registration at %s failed: %s", info.address, err)
                     errors["base"] = "no_registration"
                     detail = str(err)
-                except (TimeoutError, TrumaError, Exception) as err:  # noqa: BLE001
+                except (TrumaError, TimeoutError, Exception) as err:  # noqa: BLE001
                     _LOGGER.warning("Connecting to %s failed: %s", info.address, err)
                     _LOGGER.debug("details", exc_info=True)
                     errors["base"] = "cannot_connect"
@@ -188,15 +215,24 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
                         },
                     )
 
+        defaults = user_input or {}
         return self.async_show_form(
             step_id="pair",
             data_schema=vol.Schema(
                 {
+                    vol.Optional(
+                        CONF_USERNAME,
+                        default=defaults.get(CONF_USERNAME, DEFAULT_USERNAME),
+                    ): TextSelector(),
+                    vol.Optional(
+                        CONF_LEGACY_PAIRING,
+                        default=defaults.get(CONF_LEGACY_PAIRING, True),
+                    ): bool,
                     vol.Optional(CONF_PASSKEY, default=""): TextSelector(),
                     vol.Optional(
-                        CONF_USERNAME, default=DEFAULT_USERNAME
-                    ): TextSelector(),
-                    vol.Optional(CONF_SKIP_PAIRING, default=False): bool,
+                        CONF_SKIP_PAIRING,
+                        default=defaults.get(CONF_SKIP_PAIRING, False),
+                    ): bool,
                 }
             ),
             errors=errors,
@@ -208,13 +244,41 @@ class TrumaInetXConfigFlow(ConfigFlow, domain=DOMAIN):
             },
         )
 
+    def _latest_info(self) -> BluetoothServiceInfoBleak:
+        """Most recent advertisement (the pairing flag changes at runtime)."""
+        assert self._discovery is not None
+        latest = bluetooth.async_last_service_info(
+            self.hass, self._discovery.address, connectable=True
+        )
+        if latest is not None:
+            self._discovery = latest
+        return self._discovery
+
+    async def _async_wait_pairing_enabled(self) -> str | None:
+        """Wait (max. PAIRING_WAIT s) until the panel advertises 'pairing active'."""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + PAIRING_WAIT
+        flag: int | None = None
+        while True:
+            flag = pairing_flag(self._latest_info())
+            if flag is None or flag == PAIRING_FLAG_ENABLED:
+                return None
+            if loop.time() >= deadline:
+                break
+            await asyncio.sleep(1)
+        if flag == PAIRING_FLAG_MULTIPLE:
+            return "other_phone_connected"
+        if flag == PAIRING_FLAG_DISABLED:
+            return "pairing_not_active"
+        return None
+
     # ------------------------------------------------------------------
     async def _async_pair(
-        self, info: BluetoothServiceInfoBleak, passkey: int | None
+        self, info: BluetoothServiceInfoBleak, passkey: int | None, legacy: bool
     ) -> None:
         try:
             result = await async_pair_bluez(
-                info.address, passkey, adapter_hint=info.source
+                info.address, passkey, adapter_hint=info.source, legacy=legacy
             )
             _LOGGER.debug("BlueZ pairing result for %s: %s", info.address, result)
             return
@@ -302,6 +366,20 @@ class TrumaInetXOptionsFlow(OptionsFlow):
                             self.config_entry.data.get(CONF_USERNAME, DEFAULT_USERNAME),
                         ),
                     ): TextSelector(),
+                    vol.Optional(
+                        CONF_RELEASE_MINUTES,
+                        default=options.get(
+                            CONF_RELEASE_MINUTES, DEFAULT_RELEASE_MINUTES
+                        ),
+                    ): NumberSelector(
+                        NumberSelectorConfig(
+                            min=1,
+                            max=120,
+                            step=1,
+                            mode=NumberSelectorMode.BOX,
+                            unit_of_measurement="min",
+                        )
+                    ),
                     vol.Optional(
                         CONF_CMD_NOTIFY,
                         default=options.get(CONF_CMD_NOTIFY, CMD_NOTIFY_AUTO),

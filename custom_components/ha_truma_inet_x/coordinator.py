@@ -17,8 +17,10 @@ from .const import (
     CMD_NOTIFY_AUTO,
     CONF_CMD_NOTIFY,
     CONF_MUID,
+    CONF_RELEASE_MINUTES,
     CONF_USERNAME,
     CONF_UUID,
+    DEFAULT_RELEASE_MINUTES,
     DEFAULT_USERNAME,
     DOMAIN,
     TOPIC_IDENTIFY,
@@ -63,6 +65,10 @@ class TrumaCoordinator(DataUpdateCoordinator[None]):
             cmd_notify=entry.options.get(CONF_CMD_NOTIFY, CMD_NOTIFY_AUTO),
             on_connection_change=self._connection_changed,
             on_ready=self._ready,
+            on_pause_change=self._pause_changed,
+        )
+        self.release_minutes: int = int(
+            entry.options.get(CONF_RELEASE_MINUTES, DEFAULT_RELEASE_MINUTES)
         )
         self._unsub_state: CALLBACK_TYPE | None = None
         self._debounce_handle = None
@@ -123,6 +129,17 @@ class TrumaCoordinator(DataUpdateCoordinator[None]):
         if not connected:
             self._device_info_done = False
         self.async_set_updated_data(None)
+
+    @callback
+    def _pause_changed(self, _paused: bool) -> None:
+        self.async_set_updated_data(None)
+
+    async def async_release(self, minutes: float | None = None) -> None:
+        await self.client.release(60 * (minutes or self.release_minutes))
+
+    @callback
+    def async_resume(self) -> None:
+        self.client.resume()
 
     @callback
     def _ready(self) -> None:

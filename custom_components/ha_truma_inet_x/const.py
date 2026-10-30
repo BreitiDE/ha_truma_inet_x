@@ -20,6 +20,9 @@ CONF_UUID: Final = "uuid"
 CONF_USERNAME: Final = "username"
 CONF_PASSKEY: Final = "passkey"
 CONF_CMD_NOTIFY: Final = "cmd_notify_characteristic"
+CONF_LEGACY_PAIRING: Final = "legacy_pairing"
+CONF_RELEASE_MINUTES: Final = "release_minutes"
+DEFAULT_RELEASE_MINUTES: Final = 10
 
 CMD_NOTIFY_AUTO: Final = "auto"
 CMD_NOTIFY_4001: Final = "fc314001"
@@ -72,6 +75,9 @@ CHAR_CMD_ALT: Final = "fc314004" + _UUID_BASE  # alternative cmd notify
 CHAR_SOFTWARE_REVISION: Final = "00002a28-0000-1000-8000-00805f9b34fb"
 
 # Pairing flag = last byte of the manufacturer specific advertisement data
+PAIRING_FLAG_ENABLED: Final = 0x01
+PAIRING_FLAG_DISABLED: Final = 0x00
+PAIRING_FLAG_MULTIPLE: Final = 0xF1
 PAIRING_FLAGS: Final = {
     0x01: "pairing_enabled",
     0x00: "pairing_disabled",

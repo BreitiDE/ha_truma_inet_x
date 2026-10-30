@@ -11,7 +11,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import BOOL_OFF, BOOL_ON
 from .coordinator import TrumaConfigEntry, TrumaCoordinator
-from .entity import TrumaParamEntity, async_add_dynamic_entities
+from .entity import TrumaEntity, TrumaParamEntity, async_add_dynamic_entities
 from .state import TrumaState
 
 PARALLEL_UPDATES = 0
@@ -83,6 +83,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
+    async_add_entities([TrumaReleaseSwitch(coordinator)])
     entry.async_on_unload(
         async_add_dynamic_entities(
             coordinator,
@@ -134,3 +135,40 @@ class TrumaSwitch(TrumaParamEntity, SwitchEntity):
             if others:
                 return others[0]
         return self.entity_description.on_value
+
+
+class TrumaReleaseSwitch(TrumaEntity, SwitchEntity):
+    """Disconnect temporarily so the Truma smartphone app can connect.
+
+    The panel accepts only one app connection at a time ("Ein anderes
+    Smartphone ist mit dem iNet X verbunden").
+    """
+
+    _attr_translation_key = "app_release"
+    _attr_icon = "mdi:cellphone-link"
+
+    def __init__(self, coordinator: TrumaCoordinator) -> None:
+        super().__init__(coordinator, "app_release")
+
+    @property
+    def available(self) -> bool:
+        return True
+
+    @property
+    def is_on(self) -> bool:
+        return self.coordinator.client.paused
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "remaining_minutes": round(self.coordinator.client.pause_remaining / 60, 1),
+            "release_minutes": self.coordinator.release_minutes,
+        }
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self.coordinator.async_release()
+        self.async_write_ha_state()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self.coordinator.async_resume()
+        self.async_write_ha_state()
