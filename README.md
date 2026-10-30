@@ -6,10 +6,6 @@ Steuert eine Truma-Heizung (z. B. **Combi 6 E**) über das **Truma iNet X Panel*
 direkt aus Home Assistant, ohne Cloud und ohne Smartphone. Die Integration spricht dasselbe Protokoll
 wie die offizielle Truma-iNet-X-App (Version 3.5.0 analysiert).
 
-> **Status:** Das Protokoll wurde aus der App rekonstruiert und gegen ein simuliertes Panel getestet
-> (automatisierte Tests). Ein Test an einem echten Panel steht noch aus. Bei Problemen bitte die
-> Diagnosedaten (Geräteseite → *Diagnose herunterladen*) und ein Debug-Log sichern.
-
 ## Voraussetzungen
 
 * Home Assistant 2025.2 oder neuer mit funktionierender Bluetooth-Integration
