@@ -1,0 +1,51 @@
+{
+  "domain": "ha_truma_inet_x",
+  "name": "Truma iNet X (Bluetooth)",
+  "bluetooth": [
+    {
+      "connectable": true,
+      "manufacturer_id": 3187
+    },
+    {
+      "connectable": true,
+      "service_uuid": "fc310000-f3b2-11e8-8eb2-f2801f1b9fd1"
+    },
+    {
+      "connectable": true,
+      "service_uuid": "fc310001-f3b2-11e8-8eb2-f2801f1b9fd1"
+    },
+    {
+      "connectable": true,
+      "service_uuid": "fc310002-f3b2-11e8-8eb2-f2801f1b9fd1"
+    },
+    {
+      "connectable": true,
+      "service_uuid": "fc310003-f3b2-11e8-8eb2-f2801f1b9fd1"
+    },
+    {
+      "connectable": true,
+      "service_uuid": "fc310004-f3b2-11e8-8eb2-f2801f1b9fd1"
+    },
+    {
+      "connectable": true,
+      "service_uuid": "fc310005-f3b2-11e8-8eb2-f2801f1b9fd1"
+    },
+    {
+      "connectable": true,
+      "service_uuid": "fc310006-f3b2-11e8-8eb2-f2801f1b9fd1"
+    },
+    {
+      "connectable": true,
+      "service_uuid": "fc316029-f3b2-11e8-8eb2-f2801f1b9fd1"
+    }
+  ],
+  "codeowners": [],
+  "config_flow": true,
+  "dependencies": [
+    "bluetooth_adapters"
+  ],
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "requirements": [],
+  "version": "1.0.0"
+}

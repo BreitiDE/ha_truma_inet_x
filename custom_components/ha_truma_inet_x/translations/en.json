@@ -1,0 +1,264 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Select Truma iNet X panel",
+        "data": {
+          "address": "Panel"
+        }
+      },
+      "pair": {
+        "title": "Pair {name}",
+        "description": "Panel {name} ({address}), advertised pairing state: **{pairing_state}**.\n\n1. Close the Truma iNet X app on all phones (the panel only accepts a limited number of connections).\n2. Put the iNet X panel into pairing mode (panel menu: Settings → Bluetooth / Connections → pair new device).\n3. Enter the 6-digit PIN shown on the panel and submit within the pairing time window.\n\nIf Home Assistant is already bonded with the panel (e.g. via `bluetoothctl`), tick *Already paired*.\n\nLast error detail: {detail}",
+        "data": {
+          "passkey": "PIN shown on the panel",
+          "username": "Name shown on the panel",
+          "skip_pairing": "Already paired (skip Bluetooth pairing)"
+        },
+        "data_description": {
+          "passkey": "Leave empty if the panel does not show a PIN."
+        }
+      }
+    },
+    "error": {
+      "invalid_passkey": "The PIN must consist of up to 6 digits.",
+      "passkey_required": "The panel requires a PIN. Enter the PIN shown on the panel.",
+      "wrong_passkey": "Pairing was rejected – wrong PIN or pairing mode expired.",
+      "pairing_timeout": "Pairing timed out. Is the panel in pairing mode?",
+      "pairing_failed": "Bluetooth pairing failed.",
+      "agent_failed": "Could not register a Bluetooth pairing agent.",
+      "dbus_unavailable": "The Bluetooth stack (BlueZ/D-Bus) is not reachable.",
+      "device_not_local": "The panel is not known to the local Bluetooth adapter.",
+      "cannot_connect": "Could not connect to the panel.",
+      "no_registration": "The panel did not accept the registration (is it paired?)."
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "no_devices_found": "No Truma iNet X panel found via Bluetooth."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Truma iNet X options",
+        "data": {
+          "username": "Name shown on the panel",
+          "cmd_notify_characteristic": "Characteristic for transport notifications"
+        }
+      }
+    }
+  },
+  "selector": {
+    "cmd_notify": {
+      "options": {
+        "auto": "Automatic (FC314001, recommended)",
+        "fc314001": "FC314001",
+        "fc314004": "FC314004 (like the Android app)"
+      }
+    }
+  },
+  "entity": {
+    "water_heater": {
+      "hot_water": {
+        "name": "Hot water",
+        "state": {
+          "off": "Off",
+          "eco": "Eco (40 °C)",
+          "comfort": "Comfort (60 °C)",
+          "hot": "Hot (70 °C)",
+          "away": "Away",
+          "night": "Night",
+          "shower": "Shower"
+        }
+      }
+    },
+    "sensor": {
+      "room_temperature": {
+        "name": "Room temperature"
+      },
+      "target_room_temperature": {
+        "name": "Target room temperature"
+      },
+      "water_temperature": {
+        "name": "Water temperature"
+      },
+      "internal_temperature": {
+        "name": "Internal temperature"
+      },
+      "external_temperature": {
+        "name": "External temperature"
+      },
+      "air_heating_state": {
+        "name": "Heating state",
+        "state": {
+          "off": "Off",
+          "active": "Heating",
+          "idle": "Idle"
+        }
+      },
+      "water_heating_state": {
+        "name": "Hot water state",
+        "state": {
+          "off": "Off",
+          "active": "Heating",
+          "idle": "Idle"
+        }
+      },
+      "room_climate_mode": {
+        "name": "Room climate mode"
+      },
+      "fan_level": {
+        "name": "Fan level"
+      },
+      "vehicle_battery_voltage": {
+        "name": "Vehicle battery voltage"
+      },
+      "leisure_battery_voltage": {
+        "name": "Leisure battery voltage"
+      },
+      "leisure_battery_current": {
+        "name": "Leisure battery current"
+      },
+      "leisure_battery_soc": {
+        "name": "Leisure battery charge"
+      },
+      "error_code": {
+        "name": "Error code"
+      },
+      "power_mode": {
+        "name": "Power mode"
+      },
+      "energy_source_priority": {
+        "name": "Energy source priority"
+      }
+    },
+    "binary_sensor": {
+      "connected": {
+        "name": "Connected"
+      },
+      "burner_active": {
+        "name": "Room heating active"
+      },
+      "water_heating_active": {
+        "name": "Hot water heating active"
+      },
+      "line_power": {
+        "name": "Shore power"
+      },
+      "error": {
+        "name": "Error"
+      }
+    },
+    "switch": {
+      "water_boost": {
+        "name": "Hot water boost"
+      },
+      "water_faster_heating": {
+        "name": "Hot water fast heating"
+      },
+      "gas": {
+        "name": "Gas"
+      },
+      "diesel": {
+        "name": "Diesel"
+      },
+      "electric": {
+        "name": "Electric heating"
+      },
+      "ambient_light": {
+        "name": "Ambient light"
+      }
+    },
+    "select": {
+      "electric_level": {
+        "name": "Electric power level"
+      },
+      "diesel_level": {
+        "name": "Diesel level"
+      },
+      "energy_priority": {
+        "name": "Energy source priority"
+      },
+      "heating_mode": {
+        "name": "Heating mode"
+      },
+      "water_mode": {
+        "name": "Hot water mode"
+      }
+    },
+    "number": {
+      "ventilation_level": {
+        "name": "Ventilation level"
+      }
+    }
+  },
+  "exceptions": {
+    "device_not_found": {
+      "message": "Truma panel {address} not found via Bluetooth"
+    },
+    "unsupported_hvac_mode": {
+      "message": "HVAC mode {mode} is not supported by this system"
+    },
+    "unsupported_preset": {
+      "message": "Preset {preset} is not available"
+    },
+    "unsupported_operation": {
+      "message": "Hot water mode {mode} is not available"
+    },
+    "unsupported_option": {
+      "message": "Option {option} is not available"
+    },
+    "no_entry": {
+      "message": "No loaded Truma iNet X entry found"
+    }
+  },
+  "services": {
+    "write_parameter": {
+      "name": "Write parameter",
+      "description": "Write any topic parameter to the Truma system (expert function).",
+      "fields": {
+        "config_entry_id": {
+          "name": "Panel",
+          "description": "Config entry (optional if only one panel)."
+        },
+        "topic": {
+          "name": "Topic",
+          "description": "Topic name, e.g. AirHeating."
+        },
+        "parameter": {
+          "name": "Parameter",
+          "description": "Parameter name, e.g. TgtTemp."
+        },
+        "value": {
+          "name": "Value",
+          "description": "Raw value (temperatures in 1/10 °C)."
+        },
+        "device": {
+          "name": "Device address",
+          "description": "Optional bus address, e.g. 0x0201."
+        }
+      }
+    },
+    "rediscover": {
+      "name": "Rediscover",
+      "description": "Run device and parameter discovery again.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Panel",
+          "description": "Config entry (optional)."
+        }
+      }
+    },
+    "dump_parameters": {
+      "name": "Dump parameters",
+      "description": "Return all parameters reported by the panel.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Panel",
+          "description": "Config entry (optional)."
+        }
+      }
+    }
+  }
+}

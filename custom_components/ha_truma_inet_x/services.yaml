@@ -1,0 +1,39 @@
+write_parameter:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: ha_truma_inet_x
+    topic:
+      required: true
+      example: AirHeating
+      selector:
+        text:
+    parameter:
+      required: true
+      example: TgtTemp
+      selector:
+        text:
+    value:
+      required: true
+      example: 210
+      selector:
+        object:
+    device:
+      example: "0x0201"
+      selector:
+        text:
+
+rediscover:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: ha_truma_inet_x
+
+dump_parameters:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: ha_truma_inet_x
